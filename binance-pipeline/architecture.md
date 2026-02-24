@@ -100,7 +100,42 @@
 │                                                                     │
 │   ✦ Permanent queryable storage                                     │
 │   ✦ Full SQL — time_bucket(), aggregations, JOINs                  │
-└─────────────────────────────────────────────────────────────────────┘
+└───────────────────────┬──────────────────────────┬──────────────────┘
+                        │  psycopg2 (JDBC)          │  PostgreSQL plugin
+                        ▼                           ▼
+┌──────────────────────────────────┐   ┌──────────────────────────────┐
+│     PHASE 3 — STREAM PROCESSING  │   │    PHASE 4 — VISUALISATION   │
+│       spark/streaming_job.py     │   │            GRAFANA            │
+│                                  │   │        localhost:3000         │
+│  Source: Kafka (Structured       │   │                              │
+│          Streaming)              │   │  Datasource: TimescaleDB     │
+│                                  │   │  (PostgreSQL plugin, auto-   │
+│  Query 1 — Trade Metrics         │   │   provisioned)               │
+│    Window : 1-minute tumbling    │   │                              │
+│    Trigger: every 10 seconds     │   │  Dashboard 1: Market Overview│
+│    Output : trade_metrics table  │   │    VWAP time-series          │
+│    Fields : vwap, price_stddev,  │   │    Trade count bar gauge     │
+│             trade_count,         │   │    Avg spread line           │
+│             volatility_alert,    │   │    (one row per symbol)      │
+│             volume_spike         │   │                              │
+│                                  │   │  Dashboard 2: Risk Monitor   │
+│  Query 2 — Spread Metrics        │   │    Volatility Alerts stat    │
+│    Window : 30-second tumbling   │   │    Volume Spikes stat        │
+│    Trigger: every 10 seconds     │   │    Spread Warnings stat      │
+│    Output : spread_metrics table │   │    Anomaly events table      │
+│    Fields : avg_spread,          │   │    Spread warnings table     │
+│             max_spread,          │   │                              │
+│             min_spread,          │   │  Alerting (every 30 s):      │
+│             spread_warning       │   │    VolatilityAlert — fires   │
+│                                  │   │      when stddev > 2.0       │
+│  ✦ Event-time watermark (10s)    │   │    SpreadWarning — fires     │
+│  ✦ ON CONFLICT … DO UPDATE       │   │      when spread > 3× min    │
+│    (partial window upserts)      │   │    → Email via SMTP          │
+│  ✦ Checkpoint in ~/spark-        │   │                              │
+│    checkpoints/ (cross-platform) │   │  ✦ Auto-refresh every 10s   │
+│  ✦ winutils + hadoop.dll needed  │   │  ✦ All config as code (YAML  │
+│    on Windows (JNI path issue)   │   │    + JSON, no manual setup)  │
+└──────────────────────────────────┘   └──────────────────────────────┘
 ```
 
 ---
@@ -112,6 +147,8 @@
 | **1 — Ingestion** | `ws_consumer.py` → Kafka | Gets data out of Binance instantly, never misses an event |
 | **Buffer** | Kafka | Absorbs traffic spikes; decouples producer speed from consumer speed |
 | **2 — Buffering** | `worker.py` → TimescaleDB | Drains Kafka at a safe pace; makes data queryable permanently |
+| **3 — Processing** | `streaming_job.py` → TimescaleDB | Computes VWAP, volatility, spread metrics per rolling window in real time |
+| **4 — Visualisation** | Grafana → dashboards + alerts | Turns raw DB rows into live charts and fires email on anomaly conditions |
 
 ---
 
@@ -133,12 +170,12 @@ Scenario: consumer crashes mid-batch
 ## Processes to run
 
 ```
-Terminal 1                     Terminal 2
-──────────────────────         ──────────────────────
-python -m ingestion.ws_consumer    python -m consumer.worker
+Terminal 1                     Terminal 2                     Terminal 3
+──────────────────────         ──────────────────────         ──────────────────────
+python -m ingestion.ws_consumer    python -m consumer.worker      python -m spark.streaming_job
 
-Binance → Kafka                Kafka → TimescaleDB
-Port :8081 health              Port :8082 health
+Binance → Kafka                Kafka → TimescaleDB (raw)      Kafka → TimescaleDB (metrics)
+Port :8081 health              Port :8082 health              Spark UI :4040
 ```
 
 ---
@@ -152,5 +189,6 @@ docker compose up -d
         ├── kafka         :9092   Message broker
         ├── kafka-init            Creates topics (one-shot, exits)
         ├── kafka-ui      :8080   Visual Kafka browser
-        └── timescaledb   :5433   PostgreSQL + time-series storage
+        ├── timescaledb   :5433   PostgreSQL + time-series storage
+        └── grafana       :3000   Dashboards + email alerting
 ```

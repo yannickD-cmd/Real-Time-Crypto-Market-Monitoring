@@ -294,6 +294,89 @@ TimescaleDB is excellent for point-in-time lookups and historical aggregation, b
 
 ---
 
+---
+
+# Phase 4 — Grafana Visualisation & Alerting
+
+---
+
+## 23. Why Grafana over a custom frontend
+
+Grafana has a native PostgreSQL datasource plugin that speaks directly to TimescaleDB (which is PostgreSQL-compatible). That means zero ETL, zero sync jobs, zero extra services — the same rows Spark just upserted are immediately queryable via the standard `postgres` plugin. A custom frontend would need its own backend API, session management, chart library, and alert dispatcher. Grafana provides all of that out of the box, with a battle-tested alerting engine and SMTP integration.
+
+---
+
+## 24. Provisioning-as-code (YAML + JSON)
+
+Grafana supports two setup modes:
+
+| Mode | How |
+|------|-----|
+| Manual (UI) | Click through Connections → New datasource → save |
+| Provisioning | Mount YAML/JSON files into `/etc/grafana/provisioning/` at container start |
+
+Provisioning is used here because the pipeline must be reproducible with a single `docker compose up`. If you delete the container and recreate it, all datasources, dashboards, contact points, and alert rules reappear automatically — no re-clicking, no state stored only in Grafana's internal SQLite database.
+
+The trade-off: provisioned dashboards are read-only in the UI by default (the JSON on disk is the source of truth). That is acceptable here — edits should go through the file.
+
+---
+
+## 25. Datasource UID `timescaledb`
+
+Every dashboard panel and alert rule references the datasource by UID (`"uid": "timescaledb"`), not by name. Names can change; UIDs are stable. Hardcoding the UID in provisioning means no manual "select datasource" step when importing dashboards into a fresh Grafana instance.
+
+---
+
+## 26. Alert rule pipeline: Query → Reduce → Threshold
+
+Grafana Unified Alerting requires a specific evaluation pipeline:
+
+```
+Step A — SQL query   →  returns a time_series or table
+Step B — Reduce      →  collapses the series to a single scalar (e.g. last value)
+Step C — Threshold   →  evaluates the scalar against a condition (e.g. > 0)
+```
+
+An alert rule with only A and C (skipping B) fails with `no variable specified` — Grafana cannot apply a threshold to a multi-row result set directly. Adding the `reduce` step (type `last`, dropNN mode to ignore nulls) bridges the gap. This is the minimum viable pipeline for SQL-backed alerts.
+
+---
+
+## 27. `env_file` vs YAML variable substitution for SMTP credentials
+
+Docker Compose resolves `${VAR}` in the YAML at `docker compose up` time, reading from the `.env` file in the **same directory as `docker-compose.yml`** (i.e. `docker/`). The pipeline's `.env` lives one level up in `binance-pipeline/`. Two solutions:
+
+1. Copy `.env` into `docker/` — breaks the project layout and risks accidental commits.
+2. `env_file: ../.env` in the Grafana service definition — Docker reads the file and injects every `KEY=VALUE` line as a container environment variable **without needing YAML substitution**.
+
+Solution 2 is used. Grafana natively picks up `GF_SMTP_*` environment variables, so naming the vars `GF_SMTP_HOST`, `GF_SMTP_USER`, etc. in `.env` means they are both:
+- Injected by `env_file` into the container environment.
+- Automatically recognised by Grafana's config loader (no extra `environment:` mapping needed).
+
+---
+
+## 28. Alert evaluation timing
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| `interval` (group) | 30 seconds | Spark emits partial aggregates every 10 s; 30 s gives three data points per evaluation — enough signal without over-firing |
+| `for` (rule) | 1 minute | Prevents a single anomalous window from sending an email. The condition must hold for a full minute (two consecutive 30 s evaluations) before the alert fires |
+
+The `for` duration is the standard way to avoid alert flapping on transient spikes.
+
+---
+
+## 29. `noDataState: OK` on alert rules
+
+If TimescaleDB has no qualifying rows (e.g. no `volatility_alert=true` events in the last minute), the SQL query returns zero rows. `noDataState: OK` treats this as a resolved condition rather than firing a `NoData` alert. The intent is: silence = everything is fine. An alternative (`noDataState: Alerting`) would fire when the Spark job is stopped or the DB is empty, which would generate false positives during normal maintenance.
+
+---
+
+## 30. Dashboard refresh and time range
+
+Both dashboards use `refresh: "10s"` and `time: { from: "now-30m", to: "now" }`. Ten seconds matches the Spark trigger interval — refreshing faster would show the same data. Thirty minutes is a sliding window that always shows the most recent activity without needing to manually scroll the time range. Both values are configurable in the JSON.
+
+---
+
 ## Updated file map
 
 | File | Responsibility |
@@ -308,6 +391,14 @@ TimescaleDB is excellent for point-in-time lookups and historical aggregation, b
 | `consumer/worker.py` | Main entry point, consume loop, signal handling, health server |
 | `spark/streaming_job.py` | PySpark Structured Streaming: trade + spread windowed aggregation |
 | `spark/config.yaml` | Anomaly flag thresholds (volume spike, volatility, spread) |
-| `docker/docker-compose.yml` | Broker + ZooKeeper + topic init + UI + TimescaleDB |
+| `docker/docker-compose.yml` | Broker + ZooKeeper + topic init + UI + TimescaleDB + Grafana |
 | `docker/init-db.sql` | Schema DDL: CREATE TABLE + hypertable conversion for all 4 tables |
-| `.env` | Runtime overrides for all layers |
+| `docker/grafana/provisioning/datasources/timescaledb.yaml` | Auto-wires TimescaleDB as default datasource on container start |
+| `docker/grafana/provisioning/dashboards/provider.yaml` | Tells Grafana where to load dashboard JSON files from |
+| `docker/grafana/provisioning/alerting/contact_points.yaml` | Defines the email contact point (SMTP address from env) |
+| `docker/grafana/provisioning/alerting/notification_policies.yaml` | Routes all alerts to the email contact point |
+| `docker/grafana/provisioning/alerting/rules.yaml` | Two alert rules: VolatilityAlert and SpreadWarning |
+| `docker/grafana/dashboards/market_overview.json` | Dashboard 1: VWAP, trade count, avg spread per symbol |
+| `docker/grafana/dashboards/risk_monitor.json` | Dashboard 2: anomaly stat panels, alert timeline, events table |
+| `.env` | Runtime overrides for all layers (SMTP credentials, DB passwords) |
+| `.env.example` | Safe template — copy to `.env` and fill in real values |
