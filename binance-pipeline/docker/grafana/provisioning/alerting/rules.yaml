@@ -1,0 +1,90 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: crypto-anomalies
+    folder: Crypto Alerts
+    interval: 30s
+    rules:
+
+      - uid: volatility-alert-rule
+        title: Volatility Alert
+        condition: C
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: timescaledb
+            model:
+              rawSql: >
+                SELECT now() AS "time", count(*) AS "value"
+                FROM trade_metrics
+                WHERE volatility_alert = true
+                  AND window_start > now() - interval '1 minute'
+              format: time_series
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "Price volatility detected — stddev above threshold"
+          description: "One or more symbols have volatility_alert=true in the last 1 minute."
+
+      - uid: spread-warning-rule
+        title: Spread Warning
+        condition: C
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: timescaledb
+            model:
+              rawSql: >
+                SELECT now() AS "time", count(*) AS "value"
+                FROM spread_metrics
+                WHERE spread_warning = true
+                  AND window_start > now() - interval '1 minute'
+              format: time_series
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "Bid-ask spread widening detected"
+          description: "One or more symbols have spread_warning=true in the last 1 minute."

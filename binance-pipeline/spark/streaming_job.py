@@ -31,6 +31,7 @@ from pyspark.sql.types import (
 # ---------------------------------------------------------------------------
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
+_CHECKPOINT_BASE = os.path.join(os.path.expanduser("~"), "spark-checkpoints")
 with open(os.path.join(_DIR, "config.yaml")) as f:
     CFG = yaml.safe_load(f)
 
@@ -272,7 +273,7 @@ def _build_trade_query(spark: SparkSession):
         .outputMode("update")
         .trigger(processingTime="10 seconds")
         .foreachBatch(_write_trade_metrics)
-        .option("checkpointLocation", "/tmp/spark-checkpoints/trade_metrics")
+        .option("checkpointLocation", os.path.join(_CHECKPOINT_BASE, "trade_metrics"))
         .start()
     )
 
@@ -328,7 +329,7 @@ def _build_spread_query(spark: SparkSession):
         .outputMode("update")
         .trigger(processingTime="10 seconds")
         .foreachBatch(_write_spread_metrics)
-        .option("checkpointLocation", "/tmp/spark-checkpoints/spread_metrics")
+        .option("checkpointLocation", os.path.join(_CHECKPOINT_BASE, "spread_metrics"))
         .start()
     )
 

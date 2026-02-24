@@ -1,0 +1,90 @@
+{
+  "title": "Market Overview",
+  "uid": "market-overview",
+  "tags": ["crypto", "overview"],
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "panels": [
+
+    { "type": "text", "id": 1, "gridPos": { "x": 0, "y": 0, "w": 24, "h": 2 },
+      "options": { "mode": "markdown", "content": "## BTCUSDT" } },
+
+    { "type": "timeseries", "id": 2, "title": "BTC — VWAP (USD)",
+      "gridPos": { "x": 0, "y": 2, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "bargauge", "id": 3, "title": "BTC — Trade Count / min",
+      "gridPos": { "x": 8, "y": 2, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "timeseries", "id": 4, "title": "BTC — Avg Spread (USD)",
+      "gridPos": { "x": 16, "y": 2, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+
+    { "type": "text", "id": 10, "gridPos": { "x": 0, "y": 10, "w": 24, "h": 2 },
+      "options": { "mode": "markdown", "content": "## ETHUSDT" } },
+
+    { "type": "timeseries", "id": 11, "title": "ETH — VWAP (USD)",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "bargauge", "id": 12, "title": "ETH — Trade Count / min",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "timeseries", "id": 13, "title": "ETH — Avg Spread (USD)",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+
+    { "type": "text", "id": 20, "gridPos": { "x": 0, "y": 20, "w": 24, "h": 2 },
+      "options": { "mode": "markdown", "content": "## BNBUSDT" } },
+
+    { "type": "timeseries", "id": 21, "title": "BNB — VWAP (USD)",
+      "gridPos": { "x": 0, "y": 22, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "yellow" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "bargauge", "id": 22, "title": "BNB — Trade Count / min",
+      "gridPos": { "x": 8, "y": 22, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+
+    { "type": "timeseries", "id": 23, "title": "BNB — Avg Spread (USD)",
+      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] }
+  ]
+}

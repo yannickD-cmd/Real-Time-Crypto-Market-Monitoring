@@ -1,0 +1,15 @@
+# Secrets — never commit real credentials
+binance-pipeline/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv*/
+
+# Spark checkpoints & logs
+spark-checkpoints/
+*.log
+
+# Claude
+.claude/settings.local.json

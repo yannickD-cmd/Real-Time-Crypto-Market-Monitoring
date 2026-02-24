@@ -1,0 +1,98 @@
+{
+  "title": "Risk Monitor",
+  "uid": "risk-monitor",
+  "tags": ["crypto", "risk", "alerts"],
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "panels": [
+
+    { "type": "stat", "id": 1, "title": "Volatility Alerts (last 5 min)",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red",   "value": 1 }
+          ]},
+          "mappings": [],
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT count(*) AS \"Volatility Alerts\" FROM trade_metrics WHERE volatility_alert = true AND window_start > now() - interval '5 minutes'" }] },
+
+    { "type": "stat", "id": 2, "title": "Volume Spikes (last 5 min)",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red",   "value": 1 }
+          ]},
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT count(*) AS \"Volume Spikes\" FROM trade_metrics WHERE volume_spike = true AND window_start > now() - interval '5 minutes'" }] },
+
+    { "type": "stat", "id": 3, "title": "Spread Warnings (last 5 min)",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red",   "value": 1 }
+          ]},
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT count(*) AS \"Spread Warnings\" FROM spread_metrics WHERE spread_warning = true AND window_start > now() - interval '5 minutes'" }] },
+
+    { "type": "timeseries", "id": 4, "title": "Volatility Alert Timeline (by symbol)",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+      "targets": [
+        { "refId": "BTC", "format": "time_series",
+          "rawSql": "SELECT window_start AS time, CASE WHEN volatility_alert THEN price_stddev ELSE NULL END AS \"BTC StdDev\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "ETH", "format": "time_series",
+          "rawSql": "SELECT window_start AS time, CASE WHEN volatility_alert THEN price_stddev ELSE NULL END AS \"ETH StdDev\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "BNB", "format": "time_series",
+          "rawSql": "SELECT window_start AS time, CASE WHEN volatility_alert THEN price_stddev ELSE NULL END AS \"BNB StdDev\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }
+      ] },
+
+    { "type": "table", "id": 5, "title": "Recent Anomaly Events",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 10 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "VWAP" },   "properties": [{ "id": "unit", "value": "currencyUSD" }] },
+          { "matcher": { "id": "byName", "options": "StdDev" }, "properties": [{ "id": "decimals", "value": 4 }] }
+        ]
+      },
+      "options": { "sortBy": [{ "displayName": "Time", "desc": true }] },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT window_start AS \"Time\", symbol AS \"Symbol\", CASE WHEN volatility_alert AND volume_spike THEN 'Volatility + Spike' WHEN volatility_alert THEN 'Volatility' WHEN volume_spike THEN 'Volume Spike' END AS \"Alert Type\", round(vwap::numeric, 2) AS \"VWAP\", round(price_stddev::numeric, 4) AS \"StdDev\", trade_count AS \"Trades\" FROM trade_metrics WHERE (volatility_alert = true OR volume_spike = true) AND $__timeFilter(window_start) ORDER BY window_start DESC LIMIT 100" }] },
+
+    { "type": "table", "id": 6, "title": "Recent Spread Warnings",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 7 },
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT window_start AS \"Time\", symbol AS \"Symbol\", round(avg_spread::numeric, 5) AS \"Avg Spread\", round(max_spread::numeric, 5) AS \"Max Spread\", round(min_spread::numeric, 5) AS \"Min Spread\" FROM spread_metrics WHERE spread_warning = true AND $__timeFilter(window_start) ORDER BY window_start DESC LIMIT 50" }] }
+  ]
+}
