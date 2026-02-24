@@ -1,3 +1,5 @@
 websockets>=12.0
 confluent-kafka>=2.3.0
 python-dotenv>=1.0.0
+psycopg2-binary>=2.9.9
+# stdlib http.server used for health-check — no extra dep needed
