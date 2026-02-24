@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(../.venv-1/Scripts/python -m ingestion.ws_consumer)"
+      "Bash(../.venv-1/Scripts/python -m ingestion.ws_consumer)",
+      "Bash(../.venv-1/Scripts/python spark/streaming_job.py)",
+      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \":*)"
     ]
   }
 }

@@ -1,0 +1,15 @@
+# Thresholds for anomaly detection — tune without touching code
+
+trade_metrics:
+  # A 1-min window is flagged as a volume spike if its volume exceeds
+  # this multiple of the trailing 5-min average volume
+  volume_spike_multiplier: 2.0
+
+  # A 1-min window is flagged as a volatility alert if its stddev exceeds
+  # this multiple of the trailing 5-min average stddev
+  volatility_stddev_multiplier: 2.0
+
+spread_metrics:
+  # 30-sec window is flagged if avg_spread exceeds this multiple of the
+  # trailing 5-min median spread
+  spread_warning_multiplier: 3.0

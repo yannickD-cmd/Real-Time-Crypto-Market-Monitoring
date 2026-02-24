@@ -261,6 +261,39 @@ A single psycopg2 connection is re-used across flushes rather than opening and c
 
 ---
 
+---
+
+## 22. PySpark Structured Streaming (Phase 3)
+
+Phase 3 adds a **real-time analytics layer** on top of the raw data already stored by the consumer.
+
+**Why PySpark instead of SQL queries on TimescaleDB?**
+TimescaleDB is excellent for point-in-time lookups and historical aggregation, but Spark's Structured Streaming operates on the *live Kafka stream* — it reacts to each event as it arrives rather than polling the database. This means metrics are computed within seconds of the trade occurring, with no coupling to the consumer's write latency.
+
+**Two streaming queries run in parallel:**
+
+| Query | Source | Window | Output table |
+|-------|--------|--------|-------------|
+| Trade metrics | `binance.trades` | 1-minute tumbling | `trade_metrics` |
+| Spread metrics | `binance.book_ticker` | 30-second tumbling | `spread_metrics` |
+
+**`get_json_object` instead of `from_json` + schema:** Spark's SQL engine is case-insensitive. The Binance trade payload has two fields `e` (event type, string) and `E` (event time, integer) — identical after lowercasing. Using `from_json` with a `StructType` schema causes an `AMBIGUOUS_REFERENCE` error. `get_json_object("$.e")` / `get_json_object("$.E")` are evaluated with case-sensitive JSON path expressions, bypassing Spark's column resolution entirely.
+
+**Event-time watermark (10 seconds):** Structured Streaming needs a timestamp column to assign events to windows and to know when a window is "done" (safe to emit). We derive `event_time` from Binance's `E` field (milliseconds → timestamp). The 10-second watermark means Spark waits up to 10 seconds past the window end before finalising that window's aggregate, accommodating minor out-of-order delivery.
+
+**`foreachBatch` sink to TimescaleDB:** Spark's built-in JDBC sink does one INSERT per row. `foreachBatch` gives us a full DataFrame per micro-batch, so we call `df.collect()` once and use `psycopg2.execute_values` for a single bulk INSERT — same pattern as the consumer layer.
+
+**`ON CONFLICT … DO UPDATE`:** The 10-second trigger fires multiple times per 1-minute window while the window is still open (partial aggregates in `update` output mode). Each trigger upserts the latest aggregate for that window, so the DB always has the most recent values.
+
+**Anomaly flags:**
+- `volatility_alert = True` when `price_stddev > config_multiplier` (default: 2.0). BTCUSDT regularly triggers this (high-dollar price variance), lower-priced symbols rarely do.
+- `volume_spike` placeholder is `False` — true spike detection requires comparing the current window's volume against a rolling 5-minute baseline, which needs a stream-stream self-join or stateful processing. The column exists for downstream consumers.
+- `spread_warning = True` when `avg_spread > spread_warning_multiplier × min_spread` (default: 3×). Flags widening spreads that indicate momentary illiquidity.
+
+**Windows PySpark on Windows (the native library problem):** Spark's checkpoint manager calls `NativeIO$Windows.access0`, a JNI method in `hadoop.dll`, to check file permissions on the local filesystem. Without this DLL in the JVM's `java.library.path`, every streaming query fails at startup. The fix: copy `hadoop.dll` (and `winutils.exe`) into a directory that is already in the system PATH and therefore in `java.library.path` at JVM startup (`C:\Users\<user>\bin`). Placing them only in a dynamically-added PATH entry is unreliable because `java.library.path` is derived from the PATH at JVM launch, not from runtime modifications via `os.environ`.
+
+---
+
 ## Updated file map
 
 | File | Responsibility |
@@ -273,6 +306,8 @@ A single psycopg2 connection is re-used across flushes rather than opening and c
 | `consumer/db.py` | psycopg2 connection pool, bulk INSERT for both tables |
 | `consumer/batch_writer.py` | In-memory buffers, flush trigger logic (size + time) |
 | `consumer/worker.py` | Main entry point, consume loop, signal handling, health server |
+| `spark/streaming_job.py` | PySpark Structured Streaming: trade + spread windowed aggregation |
+| `spark/config.yaml` | Anomaly flag thresholds (volume spike, volatility, spread) |
 | `docker/docker-compose.yml` | Broker + ZooKeeper + topic init + UI + TimescaleDB |
-| `docker/init-db.sql` | Schema DDL: CREATE TABLE + hypertable conversion |
-| `.env` | Runtime overrides for both layers |
+| `docker/init-db.sql` | Schema DDL: CREATE TABLE + hypertable conversion for all 4 tables |
+| `.env` | Runtime overrides for all layers |
