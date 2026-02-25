@@ -14,7 +14,8 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f''  {x[\"\"title\"\"]} \\({x[\"\"uid\"\"]}\\)''\\) for x in d]\")",
       "Bash(taskkill /F /IM java.exe)",
       "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT now\\(\\)::time\\(0\\) AS now, \\(SELECT window_start::time\\(0\\) FROM trade_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_trade, \\(SELECT window_start::time\\(0\\) FROM spread_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_spread;\")",
-      "Bash(git push origin main)"
+      "Bash(git push origin main)",
+      "Bash(docker compose up -d --force-recreate grafana)"
     ]
   }
 }

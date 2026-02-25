@@ -12,7 +12,8 @@ contactPoints:
           message: |
             {{ range .Alerts }}
             Alert: {{ .Labels.alertname }}
-            Symbol: {{ .Labels.symbol }}
             Summary: {{ .Annotations.summary }}
+            Details: {{ .Annotations.description }}
+            Dashboard: http://localhost:3000/d/risk-monitor
             {{ end }}
         disableResolveMessage: false

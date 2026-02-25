@@ -1,90 +1,244 @@
 {
   "title": "Market Overview",
   "uid": "market-overview",
-  "tags": ["crypto", "overview"],
+  "tags": ["crypto", "market"],
   "refresh": "10s",
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Risk Monitor",
+      "tooltip": "View anomaly alerts and risk metrics",
+      "type": "link",
+      "url": "/d/risk-monitor"
+    }
+  ],
   "panels": [
 
-    { "type": "text", "id": 1, "gridPos": { "x": 0, "y": 0, "w": 24, "h": 2 },
-      "options": { "mode": "markdown", "content": "## BTCUSDT" } },
-
-    { "type": "timeseries", "id": 2, "title": "BTC — VWAP (USD)",
-      "gridPos": { "x": 0, "y": 2, "w": 8, "h": 8 },
+    {
+      "type": "stat", "id": 1,
+      "title": "BTC  —  Current VWAP",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "orange" } } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#F7931A" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#F7931A", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto", "textMode": "value",
+        "colorMode": "background", "graphMode": "none",
+        "justifyMode": "center", "text": { "valueSize": 40 }
+      },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='BTCUSDT' AND window_start > now() - interval '2 minutes' ORDER BY window_start DESC LIMIT 1"
+      }]
+    },
 
-    { "type": "bargauge", "id": 3, "title": "BTC — Trade Count / min",
-      "gridPos": { "x": 8, "y": 2, "w": 8, "h": 8 },
+    {
+      "type": "stat", "id": 2,
+      "title": "ETH  —  Current VWAP",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
-      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#627EEA" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#627EEA", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto", "textMode": "value",
+        "colorMode": "background", "graphMode": "none",
+        "justifyMode": "center", "text": { "valueSize": 40 }
+      },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='ETHUSDT' AND window_start > now() - interval '2 minutes' ORDER BY window_start DESC LIMIT 1"
+      }]
+    },
 
-    { "type": "timeseries", "id": 4, "title": "BTC — Avg Spread (USD)",
-      "gridPos": { "x": 16, "y": 2, "w": 8, "h": 8 },
+    {
+      "type": "stat", "id": 3,
+      "title": "BNB  —  Current VWAP",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#F3BA2F" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#F3BA2F", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto", "textMode": "value",
+        "colorMode": "background", "graphMode": "none",
+        "justifyMode": "center", "text": { "valueSize": 40 }
+      },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='BNBUSDT' AND window_start > now() - interval '2 minutes' ORDER BY window_start DESC LIMIT 1"
+      }]
+    },
 
-
-    { "type": "text", "id": 10, "gridPos": { "x": 0, "y": 10, "w": 24, "h": 2 },
-      "options": { "mode": "markdown", "content": "## ETHUSDT" } },
-
-    { "type": "timeseries", "id": 11, "title": "ETH — VWAP (USD)",
-      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+    {
+      "type": "timeseries", "id": 4,
+      "title": "BTC  —  VWAP",
+      "gridPos": { "x": 0, "y": 4, "w": 8, "h": 8 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#F7931A" },
+          "custom": {
+            "drawStyle": "line", "lineInterpolation": "smooth",
+            "lineWidth": 2, "fillOpacity": 15, "gradientMode": "opacity",
+            "showPoints": "auto", "pointSize": 4,
+            "spanNulls": false, "axisBorderShow": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "hidden" }
+      },
       "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+        "rawSql": "SELECT window_start AS time, round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time"
+      }]
+    },
 
-    { "type": "bargauge", "id": 12, "title": "ETH — Trade Count / min",
-      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 8 },
+    {
+      "type": "timeseries", "id": 5,
+      "title": "ETH  —  VWAP",
+      "gridPos": { "x": 8, "y": 4, "w": 8, "h": 8 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
-      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#627EEA" },
+          "custom": {
+            "drawStyle": "line", "lineInterpolation": "smooth",
+            "lineWidth": 2, "fillOpacity": 15, "gradientMode": "opacity",
+            "showPoints": "auto", "pointSize": 4,
+            "spanNulls": false, "axisBorderShow": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "hidden" }
+      },
       "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+        "rawSql": "SELECT window_start AS time, round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time"
+      }]
+    },
 
-    { "type": "timeseries", "id": 13, "title": "ETH — Avg Spread (USD)",
-      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 8 },
+    {
+      "type": "timeseries", "id": 6,
+      "title": "BNB  —  VWAP",
+      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 8 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#F3BA2F" },
+          "custom": {
+            "drawStyle": "line", "lineInterpolation": "smooth",
+            "lineWidth": 2, "fillOpacity": 15, "gradientMode": "opacity",
+            "showPoints": "auto", "pointSize": 4,
+            "spanNulls": false, "axisBorderShow": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "hidden" }
+      },
       "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+        "rawSql": "SELECT window_start AS time, round(vwap::numeric, 2) AS \"VWAP\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time"
+      }]
+    },
 
-
-    { "type": "text", "id": 20, "gridPos": { "x": 0, "y": 20, "w": 24, "h": 2 },
-      "options": { "mode": "markdown", "content": "## BNBUSDT" } },
-
-    { "type": "timeseries", "id": 21, "title": "BNB — VWAP (USD)",
-      "gridPos": { "x": 0, "y": 22, "w": 8, "h": 8 },
+    {
+      "type": "timeseries", "id": 7,
+      "title": "Trades per Minute",
+      "description": "Trade event count per 1-minute window. Higher = more market activity.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "yellow" } } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, vwap AS \"VWAP\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars", "lineWidth": 0,
+            "fillOpacity": 75, "gradientMode": "none",
+            "showPoints": "never", "barAlignment": 0, "spanNulls": false
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "BTC" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F7931A" } }] },
+          { "matcher": { "id": "byName", "options": "ETH" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#627EEA" } }] },
+          { "matcher": { "id": "byName", "options": "BNB" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F3BA2F" } }] }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }
+      },
+      "targets": [
+        { "refId": "BTC", "format": "time_series", "rawSql": "SELECT window_start AS time, trade_count AS \"BTC\" FROM trade_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "ETH", "format": "time_series", "rawSql": "SELECT window_start AS time, trade_count AS \"ETH\" FROM trade_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "BNB", "format": "time_series", "rawSql": "SELECT window_start AS time, trade_count AS \"BNB\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }
+      ]
+    },
 
-    { "type": "bargauge", "id": 22, "title": "BNB — Trade Count / min",
-      "gridPos": { "x": 8, "y": 22, "w": 8, "h": 8 },
+    {
+      "type": "timeseries", "id": 8,
+      "title": "Bid-Ask Spread (30s avg)",
+      "description": "Average bid-ask spread per 30-second window. Widening indicates lower liquidity.",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
       "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } },
-      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, trade_count AS \"Trades\" FROM trade_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD", "decimals": 5,
+          "custom": {
+            "drawStyle": "line", "lineInterpolation": "smooth",
+            "lineWidth": 2, "fillOpacity": 8, "gradientMode": "opacity",
+            "showPoints": "auto", "pointSize": 4,
+            "spanNulls": false, "axisBorderShow": false
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "BTC" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F7931A" } }] },
+          { "matcher": { "id": "byName", "options": "ETH" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#627EEA" } }] },
+          { "matcher": { "id": "byName", "options": "BNB" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#F3BA2F" } }] }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["last", "mean"] }
+      },
+      "targets": [
+        { "refId": "BTC", "format": "time_series", "rawSql": "SELECT window_start AS time, round(avg_spread::numeric, 5) AS \"BTC\" FROM spread_metrics WHERE symbol='BTCUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "ETH", "format": "time_series", "rawSql": "SELECT window_start AS time, round(avg_spread::numeric, 5) AS \"ETH\" FROM spread_metrics WHERE symbol='ETHUSDT' AND $__timeFilter(window_start) ORDER BY time" },
+        { "refId": "BNB", "format": "time_series", "rawSql": "SELECT window_start AS time, round(avg_spread::numeric, 5) AS \"BNB\" FROM spread_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }
+      ]
+    }
 
-    { "type": "timeseries", "id": 23, "title": "BNB — Avg Spread (USD)",
-      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 8 },
-      "datasource": { "type": "postgres", "uid": "timescaledb" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "fixed", "fixedColor": "purple" } } },
-      "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT window_start AS time, avg_spread AS \"Avg Spread\" FROM spread_metrics WHERE symbol='BNBUSDT' AND $__timeFilter(window_start) ORDER BY time" }] }
   ]
 }
