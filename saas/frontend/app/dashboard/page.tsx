@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { Activity, TrendingUp, Zap, Wifi, WifiOff, Circle } from 'lucide-react'
 import clsx from 'clsx'
 
-interface Tick  { time: string; total: number }
+interface Tick  { sec: number; total: number }   // sec = seconds since midnight
 interface Metrics {
   ts: number
   total_per_sec: number
@@ -25,9 +25,24 @@ const SYM_COLOR: Record<string, string> = {
   DOGEUSDT: '#C2A633',
 }
 
+/** seconds since midnight for a Date */
+function secSinceMidnight(d: Date): number {
+  return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()
+}
+
+/** format seconds-since-midnight → "HH:MM" */
+function fmtSec(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+// Fixed hour ticks for X axis  (every 3 hours)
+const HOUR_TICKS = [0, 10800, 21600, 32400, 43200, 54000, 64800, 75600]
+
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
-  const [history, setHistory] = useState<Tick[]>([])
+  const [dayData, setDayData] = useState<Tick[]>([])
   const [connected, setConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -41,10 +56,15 @@ export default function DashboardPage() {
       ws.onmessage = (e) => {
         const data: Metrics = JSON.parse(e.data)
         setMetrics(data)
-        setHistory(prev => [
-          ...prev.slice(-59),
-          { time: new Date().toLocaleTimeString('en', { hour12: false }), total: data.total_per_sec },
-        ])
+        const sec = secSinceMidnight(new Date())
+        setDayData(prev => {
+          // Replace the last tick if it has the same second (dedup)
+          const last = prev[prev.length - 1]
+          if (last && last.sec === sec) {
+            return [...prev.slice(0, -1), { sec, total: data.total_per_sec }]
+          }
+          return [...prev, { sec, total: data.total_per_sec }]
+        })
       }
     }
     connect()
@@ -53,6 +73,7 @@ export default function DashboardPage() {
 
   const symbols  = metrics ? Object.keys(metrics.per_symbol).sort() : []
   const btcPrice = metrics?.prices?.['BTCUSDT']
+  const nowSec   = dayData.length > 0 ? dayData[dayData.length - 1].sec : secSinceMidnight(new Date())
 
   return (
     <div className="p-8">
@@ -101,12 +122,12 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Live area chart */}
+      {/* Full-day area chart */}
       <div className="bg-[#171717] border border-white/[0.06] rounded-2xl p-6 mb-6 card-hover">
         <div className="flex items-end justify-between mb-6">
           <div>
             <p className="text-[11px] text-gray-600 uppercase tracking-widest font-medium mb-1">
-              Messages per second — last 60 s
+              Messages per second — today
             </p>
             <p
               className="text-4xl font-black text-white glow-orange inline-block"
@@ -116,23 +137,29 @@ export default function DashboardPage() {
             </p>
             <span className="text-gray-500 text-lg ml-2">msg/s</span>
           </div>
-          <span className="text-[11px] text-gray-600 pb-1">Auto-refreshes every second</span>
+          <span className="text-[11px] text-gray-600 pb-1">
+            {fmtSec(nowSec)} · {dayData.length} data points
+          </span>
         </div>
 
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={history} margin={{ top: 4, right: 0, left: -28, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={dayData} margin={{ top: 4, right: 0, left: -28, bottom: 0 }}>
             <defs>
               <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#ff6207" stopOpacity={0.35} />
                 <stop offset="95%" stopColor="#ff6207" stopOpacity={0}    />
               </linearGradient>
             </defs>
+
             <XAxis
-              dataKey="time"
+              dataKey="sec"
+              type="number"
+              domain={[0, 86399]}
+              ticks={HOUR_TICKS}
+              tickFormatter={fmtSec}
               tick={{ fill: '#4B5563', fontSize: 10 }}
               tickLine={false}
               axisLine={false}
-              interval="preserveStartEnd"
             />
             <YAxis
               tick={{ fill: '#4B5563', fontSize: 10 }}
@@ -140,6 +167,8 @@ export default function DashboardPage() {
               axisLine={false}
             />
             <Tooltip
+              labelFormatter={(v) => fmtSec(Number(v))}
+              formatter={(v: number) => [`${v} msg/s`, 'Messages']}
               contentStyle={{
                 background: '#1e1e1e',
                 border: '1px solid rgba(255,255,255,0.06)',
@@ -149,6 +178,17 @@ export default function DashboardPage() {
               }}
               cursor={{ stroke: 'rgba(255,98,7,0.25)', strokeWidth: 1 }}
             />
+
+            {/* Vertical line at current time */}
+            {dayData.length > 0 && (
+              <ReferenceLine
+                x={nowSec}
+                stroke="rgba(255,98,7,0.4)"
+                strokeDasharray="3 3"
+                strokeWidth={1}
+              />
+            )}
+
             <Area
               type="monotone"
               dataKey="total"
@@ -157,9 +197,17 @@ export default function DashboardPage() {
               fill="url(#grad)"
               dot={false}
               activeDot={{ r: 4, fill: '#ff6207' }}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
+
+        {/* Hour labels row */}
+        <div className="flex justify-between mt-1 px-1">
+          {HOUR_TICKS.map(t => (
+            <span key={t} className="text-[9px] text-gray-700">{fmtSec(t)}</span>
+          ))}
+        </div>
       </div>
 
       {/* Per-symbol cards */}

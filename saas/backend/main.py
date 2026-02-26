@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import ws, members, signals, dispatch
+from routers import ws, members, signals, dispatch, groups
 
 app = FastAPI(title="Crypto Signal Dispatcher", version="1.0.0")
 
@@ -16,6 +16,7 @@ app.include_router(ws.router, tags=["WebSocket"])
 app.include_router(members.router, prefix="/api/members", tags=["Members"])
 app.include_router(signals.router, prefix="/api/signals", tags=["Signals"])
 app.include_router(dispatch.router, prefix="/api/dispatch", tags=["Dispatch"])
+app.include_router(groups.router, prefix="/api/groups", tags=["Groups"])
 
 
 @app.get("/")

@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Radio, History, Zap } from 'lucide-react'
+import { LayoutDashboard, Users, Radio, History, Zap, Layers } from 'lucide-react'
 import clsx from 'clsx'
 
 const nav = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/members',   icon: Users,           label: 'Members'   },
+  { href: '/groups',    icon: Layers,          label: 'Groups'    },
   { href: '/signals',   icon: Radio,           label: 'Signals'   },
   { href: '/history',   icon: History,         label: 'History'   },
 ]

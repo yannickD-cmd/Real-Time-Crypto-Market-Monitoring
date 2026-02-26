@@ -22,7 +22,11 @@
       "Bash(pip install fastapi \"uvicorn[standard]\" python-multipart confluent-kafka python-dotenv pydantic)",
       "Bash(npm install)",
       "Bash(npm install next@latest)",
-      "Bash(git rm -r --cached saas/frontend/node_modules saas/frontend/.next saas/backend/__pycache__ saas/backend/data)"
+      "Bash(git rm -r --cached saas/frontend/node_modules saas/frontend/.next saas/backend/__pycache__ saas/backend/data)",
+      "Bash(docker compose up -d)",
+      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
+      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"\\\\dt\")",
+      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT COUNT\\(*\\) FROM trades; SELECT COUNT\\(*\\) FROM trade_metrics;\")"
     ]
   }
 }

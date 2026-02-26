@@ -72,7 +72,7 @@ services:
       timescaledb:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "3001:3000"
     env_file:
       - ../.env
     environment:
@@ -80,10 +80,19 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_UNIFIED_ALERTING_ENABLED: "true"
       GF_ALERTING_ENABLED: "false"
+      # ── SignalDesk branding ───────────────────────────────────────────
+      GF_SERVER_INSTANCE_NAME: "SignalDesk"
+      GF_DEFAULT_INSTANCE_NAME: "SignalDesk"
+      GF_APP_TITLE: "SignalDesk — Crypto Monitor"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_USERS_DEFAULT_THEME: "dark"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/custom.ini:/etc/grafana/grafana.ini
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
       interval: 10s

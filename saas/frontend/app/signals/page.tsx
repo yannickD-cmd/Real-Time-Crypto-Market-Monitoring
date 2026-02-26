@@ -72,7 +72,8 @@ export default function SignalsPage() {
       body: JSON.stringify(form),
     })
     if (res.ok) {
-      setSignals(s => [...s, await res.json()])
+      const newSig = await res.json()
+      setSignals(s => [...s, newSig])
       setShowAdd(false)
       setForm(EMPTY_FORM)
     } else {
