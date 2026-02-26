@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: #0a0a0a;
+  color: #ffffff;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #171717;
+}
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ff6207;
+}
+
+/* Utility: card hover glow — Accretion orange */
+.card-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  border-color: rgba(255, 98, 7, 0.25) !important;
+  box-shadow: 0 0 24px 0 rgba(255, 98, 7, 0.07);
+}
+
+/* Utility: ambient orange glow (behind hero numbers) */
+.glow-orange {
+  text-shadow: 0 0 40px rgba(255, 98, 7, 0.5);
+}

@@ -15,7 +15,13 @@
       "Bash(taskkill /F /IM java.exe)",
       "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT now\\(\\)::time\\(0\\) AS now, \\(SELECT window_start::time\\(0\\) FROM trade_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_trade, \\(SELECT window_start::time\\(0\\) FROM spread_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_spread;\")",
       "Bash(git push origin main)",
-      "Bash(docker compose up -d --force-recreate grafana)"
+      "Bash(docker compose up -d --force-recreate grafana)",
+      "Bash(ls C:/Users/dosza/OneDrive/Desktop/Real-Time-Crypto-Market-Monitoring/binance-pipeline/.venv*)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(pip install fastapi \"uvicorn[standard]\" python-multipart confluent-kafka python-dotenv pydantic)",
+      "Bash(npm install)",
+      "Bash(npm install next@latest)"
     ]
   }
 }
