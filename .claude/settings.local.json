@@ -26,7 +26,8 @@
       "Bash(docker compose up -d)",
       "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
       "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"\\\\dt\")",
-      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT COUNT\\(*\\) FROM trades; SELECT COUNT\\(*\\) FROM trade_metrics;\")"
+      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT COUNT\\(*\\) FROM trades; SELECT COUNT\\(*\\) FROM trade_metrics;\")",
+      "Bash(docker compose down)"
     ]
   }
 }

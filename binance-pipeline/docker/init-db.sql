@@ -62,3 +62,58 @@ SELECT create_hypertable(
 
 CREATE INDEX IF NOT EXISTS idx_book_ticker_symbol_time
     ON book_ticker (symbol, ingestion_timestamp DESC);
+
+-- ---------------------------------------------------------------------------
+-- trade_metrics table
+-- Stores windowed aggregations computed by the Spark streaming job.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS trade_metrics (
+    window_start        TIMESTAMPTZ     NOT NULL,
+    window_end          TIMESTAMPTZ     NOT NULL,
+    symbol              TEXT            NOT NULL,
+    window_seconds      INT             NOT NULL,
+    trade_count         INT             NOT NULL,
+    total_volume        NUMERIC(20, 8)  NOT NULL,
+    vwap                NUMERIC(20, 8)  NOT NULL,
+    price_high          NUMERIC(20, 8)  NOT NULL,
+    price_low           NUMERIC(20, 8)  NOT NULL,
+    price_stddev        NUMERIC(20, 8),
+    volume_spike        BOOLEAN         NOT NULL DEFAULT FALSE,
+    volatility_alert    BOOLEAN         NOT NULL DEFAULT FALSE,
+    UNIQUE (window_start, symbol, window_seconds)
+);
+
+SELECT create_hypertable(
+    'trade_metrics',
+    'window_start',
+    chunk_time_interval => INTERVAL '1 day',
+    if_not_exists => TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_trade_metrics_symbol_time
+    ON trade_metrics (symbol, window_start DESC);
+
+-- ---------------------------------------------------------------------------
+-- spread_metrics table
+-- Stores windowed bid-ask spread aggregations from Spark.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS spread_metrics (
+    window_start        TIMESTAMPTZ     NOT NULL,
+    window_end          TIMESTAMPTZ     NOT NULL,
+    symbol              TEXT            NOT NULL,
+    avg_spread          NUMERIC(20, 8)  NOT NULL,
+    max_spread          NUMERIC(20, 8)  NOT NULL,
+    min_spread          NUMERIC(20, 8)  NOT NULL,
+    spread_warning      BOOLEAN         NOT NULL DEFAULT FALSE,
+    UNIQUE (window_start, symbol)
+);
+
+SELECT create_hypertable(
+    'spread_metrics',
+    'window_start',
+    chunk_time_interval => INTERVAL '1 day',
+    if_not_exists => TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_spread_metrics_symbol_time
+    ON spread_metrics (symbol, window_start DESC);
