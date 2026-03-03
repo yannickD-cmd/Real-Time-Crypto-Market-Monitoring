@@ -122,6 +122,12 @@ services:
       - ../.env
     command: python -m ingestion.ws_consumer
     restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # Step 2 — Kafka → TimescaleDB raw tables
   consumer:
@@ -142,6 +148,12 @@ services:
       - ../.env
     command: python -m consumer.worker
     restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # Step 3 — Kafka → PySpark metrics → TimescaleDB
   spark:
@@ -166,17 +178,25 @@ services:
       - ivy_cache:/root/.ivy2
     restart: on-failure
 
-  # Prints links once Grafana is healthy
+  # Prints step-by-step status once all services are up
   ready:
     image: alpine:3
     container_name: ready
     depends_on:
       grafana:
         condition: service_healthy
+      ingestion:
+        condition: service_healthy
+      consumer:
+        condition: service_healthy
     command: >
       sh -c "echo '' &&
              echo '========================================' &&
-             echo '  Pipeline is running. Open:' &&
+             echo '  [OK] Step 1 — Kafka + TimescaleDB + Grafana   Ready' &&
+             echo '  [OK] Step 2 — Ingestion (Binance -> Kafka)    Started' &&
+             echo '  [OK] Step 3 — Consumer (Kafka -> TimescaleDB) Started' &&
+             echo '  [OK] Step 4 — Spark (Kafka -> Metrics)        Started' &&
+             echo '----------------------------------------' &&
              echo '  Grafana:   http://localhost:3001  (admin / admin)' &&
              echo '  Kafka UI:  http://localhost:8080' &&
              echo '========================================'"

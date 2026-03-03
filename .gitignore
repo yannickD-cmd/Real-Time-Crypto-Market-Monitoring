@@ -12,4 +12,4 @@ spark-checkpoints/
 *.log
 
 # Claude
-.claude/settings.local.json
+.claude/

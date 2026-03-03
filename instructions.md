@@ -2,9 +2,6 @@
 
 ## Prerequisites
 - Docker Desktop running
-- Python 3.10+
-- Java 11 or 17 (required by PySpark — `java -version` to check)
-- **Windows only:** set `HADOOP_HOME` to a folder containing `winutils.exe` and `hadoop.dll`
 
 ---
 
@@ -12,55 +9,41 @@
 
 ```bash
 cp binance-pipeline/.env.example binance-pipeline/.env
-cd binance-pipeline && pip install -r requirements.txt
 ```
 
 ---
 
-## 2 — Start Docker (Kafka + TimescaleDB + Grafana)
+## 2 — Start Everything
 
 ```bash
 cd binance-pipeline/docker
 docker compose up -d
 ```
 
-Wait ~15 seconds, then verify:
+Docker will start all services in the correct order and print a status message when ready:
 
-```bash
-docker compose ps
+```
+========================================
+  [OK] Step 1 — Kafka + TimescaleDB + Grafana   Ready
+  [OK] Step 2 — Ingestion (Binance -> Kafka)    Started
+  [OK] Step 3 — Consumer (Kafka -> TimescaleDB) Started
+  [OK] Step 4 — Spark (Kafka -> Metrics)        Started
+----------------------------------------
+  Grafana:   http://localhost:3001  (admin / admin)
+  Kafka UI:  http://localhost:8080
+========================================
 ```
 
-All containers should show `running` (kafka-init will show `exited 0`).
+To see this message run:
+```bash
+docker compose logs ready
+```
+
+> **First run only:** Docker builds the Python image and downloads ~500MB of dependencies. Takes 3–5 minutes. Subsequent runs are instant.
 
 ---
 
-## 3 — Start the 3 Pipeline Processes
-
-Open **3 separate terminals**, all from `binance-pipeline/`:
-
-**Terminal 1 — Ingestion (Binance WebSocket → Kafka)**
-```bash
-cd binance-pipeline
-python -m ingestion.ws_consumer
-```
-
-**Terminal 2 — Consumer (Kafka → TimescaleDB raw tables)**
-```bash
-cd binance-pipeline
-python -m consumer.worker
-```
-
-**Terminal 3 — Spark Streaming (Kafka → metrics tables)**
-```bash
-cd binance-pipeline
-python -m spark.streaming_job
-```
-
-Spark takes ~20 seconds to start.
-
----
-
-## 4 — Test Each Part
+## 3 — Verify Each Part
 
 **Kafka — check messages are flowing:**
 Open `http://localhost:8080` → Topics → `binance.trades` → Messages tab.
@@ -84,7 +67,7 @@ Open `http://localhost:3001` (admin / admin) → Dashboards → Market Overview.
 
 ---
 
-## 5 — Receive Email Alerts
+## 4 — Receive Email Alerts
 
 Open `binance-pipeline/.env` and fill in your email details:
 
@@ -113,7 +96,7 @@ Alerts fire automatically when:
 
 ---
 
-## 6 — Run on a Subset (demo)
+## 5 — Run on a Subset (demo)
 
 To reduce volume and see data evolve quickly, edit `binance-pipeline/.env`:
 
@@ -123,13 +106,16 @@ CONSUMER_BATCH_SIZE=20
 CONSUMER_FLUSH_INTERVAL=1.0
 ```
 
-Then restart the 3 processes. DB rows will appear every ~1 second.
+Then restart:
+```bash
+docker compose restart ingestion consumer spark
+```
+
+DB rows will appear every ~1 second.
 
 ---
 
 ## 6 — Stop
-
-`Ctrl+C` in each terminal, then:
 
 ```bash
 cd binance-pipeline/docker
