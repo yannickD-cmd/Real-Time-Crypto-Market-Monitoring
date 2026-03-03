@@ -23,21 +23,15 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
 
-  # One-shot container: creates the topics then exits
+  # One-shot container: waits for Kafka then creates topics
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-init
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
     entrypoint: ["/bin/sh", "-c"]
-    command: "kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && echo 'Topics ready.'"
+    command: "echo 'Waiting for Kafka...' && cub kafka-ready -b kafka:29092 1 30 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && echo 'Topics ready.'"
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
