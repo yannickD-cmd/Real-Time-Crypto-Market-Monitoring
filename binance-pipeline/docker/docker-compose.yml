@@ -23,15 +23,21 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   # One-shot container: creates the topics then exits
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-init
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
-    command: "echo 'Waiting for Kafka…' && cub kafka-ready -b kafka:29092 1 30 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && echo 'Topics ready.'"
+    command: "kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && echo 'Topics ready.'"
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -99,6 +105,84 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── Pipeline Python services ──────────────────────────────────────────────
+
+  # Step 1 — Binance WebSocket → Kafka
+  ingestion:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: ingestion
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    env_file:
+      - ../.env
+    command: python -m ingestion.ws_consumer
+    restart: on-failure
+
+  # Step 2 — Kafka → TimescaleDB raw tables
+  consumer:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: consumer
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+    env_file:
+      - ../.env
+    command: python -m consumer.worker
+    restart: on-failure
+
+  # Step 3 — Kafka → PySpark metrics → TimescaleDB
+  spark:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: spark
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+    env_file:
+      - ../.env
+    command: python -m spark.streaming_job
+    volumes:
+      - spark_checkpoints:/root/spark-checkpoints
+      - ivy_cache:/root/.ivy2
+    restart: on-failure
+
+  # Prints links once Grafana is healthy
+  ready:
+    image: alpine:3
+    container_name: ready
+    depends_on:
+      grafana:
+        condition: service_healthy
+    command: >
+      sh -c "echo '' &&
+             echo '========================================' &&
+             echo '  Pipeline is running. Open:' &&
+             echo '  Grafana:   http://localhost:3001  (admin / admin)' &&
+             echo '  Kafka UI:  http://localhost:8080' &&
+             echo '========================================'"
+
 volumes:
   timescaledb_data:
   grafana_data:
+  spark_checkpoints:
+  ivy_cache:
