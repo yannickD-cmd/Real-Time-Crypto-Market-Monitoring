@@ -24,15 +24,33 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
 
   # One-shot container: waits for Kafka then creates topics
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-init
     depends_on:
-      - kafka
-    entrypoint: ["/bin/sh", "-c"]
-    command: "echo 'Waiting for Kafka...' && cub kafka-ready -b kafka:29092 1 30 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && echo 'Topics ready.'"
+      kafka:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo 'Waiting for Kafka to accept admin requests...'
+        for i in 1 2 3 4 5; do
+          kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && \
+          kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && \
+          echo 'Topics ready.' && exit 0
+          echo "Attempt $$i failed, retrying in 5s..."
+          sleep 5
+        done
+        echo 'ERROR: Could not create topics after 5 attempts' && exit 1
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
