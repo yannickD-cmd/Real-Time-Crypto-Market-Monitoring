@@ -1,18 +1,37 @@
-version: '3.8'
+version: "3.8"
+
+# =============================================================================
+#  Unified Docker Compose — Pipeline + SaaS
+#
+#  Launch everything:   docker compose up --build
+#  Pipeline only:       docker compose --profile pipeline up --build
+#  SaaS only:           docker compose --profile saas up --build
+#
+#  Ports overview:
+#    3000  → SaaS Frontend  (Next.js)
+#    3001  → Grafana
+#    8000  → SaaS Backend   (FastAPI)
+#    8080  → Kafka UI
+#    5433  → TimescaleDB    (mapped from 5432 inside)
+#    9092  → Kafka          (host access)
+# =============================================================================
 
 services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_SERVER_ID: 1
-    ports:
-      - "2181:2181"
+      ZOOKEEPER_TICK_TIME: 2000
     networks:
-      - crypto-pipeline
+      - crypto-net
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
     depends_on:
       - zookeeper
     ports:
@@ -24,12 +43,42 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
     networks:
-      - crypto-pipeline
+      - crypto-net
+
+  # One-shot container: waits for Kafka then creates topics
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo 'Waiting for Kafka to accept admin requests...'
+        for i in 1 2 3 4 5; do
+          kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.trades --partitions 3 --replication-factor 1 && \
+          kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic binance.book_ticker --partitions 3 --replication-factor 1 && \
+          echo 'Topics ready.' && exit 0
+          echo "Attempt $$i failed, retrying in 5s..."
+          sleep 5
+        done
+        echo 'ERROR: Could not create topics after 5 attempts' && exit 1
+    networks:
+      - crypto-net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
     depends_on:
       - kafka
     ports:
@@ -37,25 +86,217 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     networks:
-      - crypto-pipeline
+      - crypto-net
 
-  binance-ingestion:
-    build: .
-    depends_on:
-      - kafka
+  # ── TimescaleDB ───────────────────────────────────────────────────────────
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    ports:
+      - "5433:5432"
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: '["kafka:29092"]'
-      BINANCE_SYMBOLS: '["BTCUSDT","ETHUSDT","BNBUSDT"]'
-      BINANCE_STREAM_TYPES: '["aggTrade","depth@100ms","trade"]'
-      KAFKA_COMPRESSION: gzip
-      LOG_LEVEL: INFO
+      POSTGRES_DB: crypto
+      POSTGRES_USER: crypto
+      POSTGRES_PASSWORD: crypto_secret
     volumes:
-      - ./logs:/app/logs
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./binance-pipeline/docker/init-db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crypto -d crypto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - crypto-pipeline
+      - crypto-net
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+
+  grafana:
+    image: grafana/grafana-oss:11.0.0
+    container_name: grafana
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_ALERTING_ENABLED: "false"
+      GF_SERVER_INSTANCE_NAME: "SignalDesk"
+      GF_DEFAULT_INSTANCE_NAME: "SignalDesk"
+      GF_APP_TITLE: "SignalDesk — Crypto Monitor"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_USERS_DEFAULT_THEME: "dark"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    env_file:
+      - ./binance-pipeline/.env
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./binance-pipeline/docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./binance-pipeline/docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./binance-pipeline/docker/grafana/custom.ini:/etc/grafana/grafana.ini
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - crypto-net
+
+  # ── Pipeline Python services ──────────────────────────────────────────────
+
+  # Step 1 — Binance WebSocket → Kafka
+  ingestion:
+    build:
+      context: ./binance-pipeline
+      dockerfile: Dockerfile
+    container_name: ingestion
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    env_file:
+      - ./binance-pipeline/.env
+    command: python -m ingestion.ws_consumer
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - crypto-net
+
+  # Step 2 — Kafka → TimescaleDB raw tables
+  consumer:
+    build:
+      context: ./binance-pipeline
+      dockerfile: Dockerfile
+    container_name: consumer
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+    env_file:
+      - ./binance-pipeline/.env
+    command: python -m consumer.worker
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - crypto-net
+
+  # Step 3 — Kafka → PySpark metrics → TimescaleDB
+  spark:
+    build:
+      context: ./binance-pipeline
+      dockerfile: Dockerfile
+    container_name: spark
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+    env_file:
+      - ./binance-pipeline/.env
+    command: python -m spark.streaming_job
+    volumes:
+      - spark_checkpoints:/root/spark-checkpoints
+      - ivy_cache:/root/.ivy2
+    restart: on-failure
+    networks:
+      - crypto-net
+
+  # ── SaaS services ────────────────────────────────────────────────────────
+
+  # FastAPI backend — signal dispatcher
+  saas-backend:
+    build:
+      context: ./saas/backend
+      dockerfile: Dockerfile
+    container_name: saas-backend
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    networks:
+      - crypto-net
+
+  # Next.js frontend — SignalDesk UI
+  saas-frontend:
+    build:
+      context: ./saas/frontend
+      dockerfile: Dockerfile
+    container_name: saas-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - saas-backend
+    restart: on-failure
+    networks:
+      - crypto-net
+
+  # ── Ready banner ──────────────────────────────────────────────────────────
+
+  ready:
+    image: alpine:3
+    container_name: ready
+    depends_on:
+      grafana:
+        condition: service_healthy
+      ingestion:
+        condition: service_healthy
+      consumer:
+        condition: service_healthy
+    command: >
+      sh -c "echo '' &&
+             echo '========================================' &&
+             echo '  All services are UP!' &&
+             echo '========================================' &&
+             echo '' &&
+             echo '  Pipeline:' &&
+             echo '    Grafana:     http://localhost:3001  (admin / admin)' &&
+             echo '    Kafka UI:    http://localhost:8080' &&
+             echo '' &&
+             echo '  SaaS:' &&
+             echo '    Frontend:    http://localhost:3000' &&
+             echo '    Backend API: http://localhost:8000' &&
+             echo '========================================'"
+    networks:
+      - crypto-net
 
 networks:
-  crypto-pipeline:
+  crypto-net:
     driver: bridge
+
+volumes:
+  timescaledb_data:
+  grafana_data:
+  spark_checkpoints:
+  ivy_cache:

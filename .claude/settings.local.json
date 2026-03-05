@@ -1,33 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(../.venv-1/Scripts/python -m ingestion.ws_consumer)",
-      "Bash(../.venv-1/Scripts/python spark/streaming_job.py)",
-      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \":*)",
-      "Bash(docker compose up -d grafana)",
-      "Bash(curl -s http://localhost:3000/api/health)",
-      "Bash(docker compose restart grafana)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f''  {x[\"\"name\"\"]} \\({x[\"\"type\"\"]}\\) uid={x[\"\"uid\"\"]}''\\) for x in d]\")",
-      "Bash(curl -s -u admin:admin \"http://localhost:3000/api/search?type=dash-db\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f''  {x[\"\"title\"\"]} — uid={x[\"\"uid\"\"]}''\\) for x in d]\")",
-      "Bash(curl -s -u admin:admin \"http://localhost:3000/api/v1/provisioning/alert-rules\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f''  {x[\"\"title\"\"]} \\({x[\"\"uid\"\"]}\\)''\\) for x in d]\")",
-      "Bash(taskkill /F /IM java.exe)",
-      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT now\\(\\)::time\\(0\\) AS now, \\(SELECT window_start::time\\(0\\) FROM trade_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_trade, \\(SELECT window_start::time\\(0\\) FROM spread_metrics ORDER BY window_start DESC LIMIT 1\\) AS latest_spread;\")",
-      "Bash(git push origin main)",
-      "Bash(docker compose up -d --force-recreate grafana)",
-      "Bash(ls C:/Users/dosza/OneDrive/Desktop/Real-Time-Crypto-Market-Monitoring/binance-pipeline/.venv*)",
-      "Bash(node --version)",
-      "Bash(npm --version)",
-      "Bash(pip install fastapi \"uvicorn[standard]\" python-multipart confluent-kafka python-dotenv pydantic)",
-      "Bash(npm install)",
-      "Bash(npm install next@latest)",
-      "Bash(git rm -r --cached saas/frontend/node_modules saas/frontend/.next saas/backend/__pycache__ saas/backend/data)",
-      "Bash(docker compose up -d)",
-      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
-      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"\\\\dt\")",
-      "Bash(docker exec timescaledb psql -U crypto -d crypto -c \"SELECT COUNT\\(*\\) FROM trades; SELECT COUNT\\(*\\) FROM trade_metrics;\")",
-      "Bash(docker compose down)"
+      "Bash(du -sh \"c:/Users/dosza/OneDrive/Desktop/Real-Time-Crypto-Market-Monitoring\"/*)",
+      "Bash(du -sh \"c:/Users/dosza/OneDrive/Desktop/Real-Time-Crypto-Market-Monitoring\"/.[!.]*)"
     ]
   }
 }
